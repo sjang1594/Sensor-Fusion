@@ -1,0 +1,18 @@
+[submodule "fmcw-radar-sensor"]
+	path = fmcw-radar-sensor
+	url = https://github.com/sjang1594/fmcw-radar-sensor.git
+[submodule "CameraLiDARLib"]
+	path = CameraLiDARLib
+	url = https://github.com/sjang1594/CameraLiDARLib.git
+[submodule "PointPainting"]
+	path = PointPainting
+	url = https://github.com/sjang1594/PointPainting.git
+[submodule "NeuralRadarSim"]
+	path = NeuralRadarSim
+	url = https://github.com/sjang1594/NeuralRadarSim.git
+[submodule "BevFormerRadar"]
+	path = BevFormerRadar
+	url = https://github.com/sjang1594/BEVFormerRadar.git
+[submodule "RadarCameraFusion"]
+	path = RadarCameraFusion
+	url = https://github.com/sjang1594/RadarCameraFusion.git
