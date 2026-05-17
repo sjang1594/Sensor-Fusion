@@ -20,7 +20,7 @@ not original implementations. Each notebook links to the project where the theor
 
 ---
 
-## Relationship to the Portfolio Projects
+## Relationship to the Projects
 
 ```
 tutorials/                      →  production implementations
