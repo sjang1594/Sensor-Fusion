@@ -1,214 +1,157 @@
 # Sensor Fusion Portfolio
 
-A portfolio of autonomous driving sensor fusion projects, organized as a progression from
-physics-level signal simulation through classical filtering to deep learning and neural scene
-reconstruction. All projects share the nuScenes v1.0-mini dataset and a common sensor
-coordinate convention.
+**Seungho Jang** — GPU/rendering engineer with 4 years of industry experience.
+This portfolio covers neural sensor simulation, BEV perception, and classical sensor fusion,
+from raw radar waveform physics to deep multi-sensor architectures.
 
 ---
 
-## Architecture
+## Research
 
+> *For PhD admissions and research roles: novel methods, contributions, and research arc.*
+
+### NeuralSensorSim → BEVFormerRadar
+
+A two-stage research pipeline: generate physics-accurate synthetic radar data with 3D Gaussian Splatting, then use it to improve BEV perception training.
+
+**The core question:** *Can synthetic radar data generated from neural scene representations substitute for scarce real radar data?*
+
+| Stage | What it does | Key result |
+|---|---|---|
+| [NeuralSensorSim](NeuralSensorSim/) | 3DGS scene fitting → novel view synthesis → physics-based radar simulation + dynamic object paste | PSNR **30.94 dB**, 7.17M Gaussians; 120 synthetic samples/scene |
+| [BEVFormerRadar](BEVFormerRadar/) | BEVFormer (ResNet50 + SCA) trained on real + synthetic mix | Real+Synth 1:3 → MOTA **-3.75** (real-only: -13.23); post-threshold MOTA **-0.51**, IDSW **1** (vs PMBM: IDSW 3) |
+
+**Research arc:**
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     THEORY FOUNDATION                               │
-│  Docs/BasicSensorTutorial — notebooks mapping math to each project  │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │ informs
-┌────────────────────────────▼────────────────────────────────────────┐
-│                     SIGNAL PHYSICS                                  │
-│                                                                     │
-│  fmcw-radar-sensor ── Physics-level 77 GHz FMCW radar simulator    │
-│      │                NVIDIA Isaac Sim + Warp GPU ray casting       │
-│      │                ADC → Range-Doppler → CA-CFAR detections      │
-│      │                                                              │
-│      └── data/v1.0-mini/ ◄─── nuScenes mini (shared by all)        │
-└──────────────┬──────────────────────────────────────────────────────┘
-               │ nuScenes data + sensor transform chain
-┌──────────────▼──────────────────────────────────────────────────────┐
-│                     CALIBRATION                                     │
-│                                                                     │
-│  CameraLiDARLib ── 6-DoF Camera↔LiDAR extrinsic calibration        │
-│      └── solvePnP + Nelder-Mead, RANSAC plane fitting, noise study  │
-└──────────────┬──────────────────────────────────────────────────────┘
-               │ calibrated sensor frames
-┌──────────────▼──────────────────────────────────────────────────────┐
-│                     CLASSICAL FUSION                                │
-│                                                                     │
-│  RadarCameraFusion ── Radar + Camera → EKF tracking                │
-│      └── YOLOv8m detections + nuScenes RADAR_FRONT + EKF [x,y,vx,vy]│
-└──────────────┬──────────────────────────────────────────────────────┘
-               │ fused object tracks
-┌──────────────▼──────────────────────────────────────────────────────┐
-│                     DEEP FUSION                                     │
-│                                                                     │
-│  PointPainting ── LiDAR + Camera → semantic painting → 3D detect   │
-│      └── YOLOv8-seg scores painted onto LiDAR → BEV + DBSCAN       │
-│                                                                     │
-│  BevFormerRadar ── Multi-camera + Radar → BEV transformer          │
-│      └── ResNet50-FPN + Spatial Cross-Attention + CenterHead        │
-└──────────────┬──────────────────────────────────────────────────────┘
-               │ scene understanding
-┌──────────────▼──────────────────────────────────────────────────────┐
-│                     NEURAL SCENE                                    │
-│                                                                     │
-│  NeuralRadarSim ── 3D Gaussian Splatting → novel-view synthesis     │
-│      └── LiDAR-initialized Gaussians + dynamic masking + radar sim  │
-└─────────────────────────────────────────────────────────────────────┘
+nuScenes LiDAR/Camera/Radar
+         │
+         ▼
+NeuralSensorSim
+  Phase 1: 3DGS static scene fitting     → PSNR 30.94 dB
+  Phase 2: Novel view synthesis          → 120 samples × 12 pose perturbations
+  Phase 3: Physics-based radar sim       → Radial Doppler noise, dynamic copy-paste
+         │
+         ▼
+BEVFormerRadar
+  Exp A: real-only baseline              → MOTA -13.23, IDSW 514
+  Exp B: real + synth 1:1               → MOTA -11.69, IDSW 422
+  Exp C: real + synth 1:3               → MOTA  -3.75, IDSW  80  (+9.5 pt, -84% IDSW)
+  Threshold tuning (thr=1e-3)           → MOTA  -0.51, IDSW   1  (near PMBM level)
 ```
+
+Docs: [SUMMARY.md](Docs/SUMMARY.md) — architecture, implementation steps, experiment analysis, [research roadmap](Docs/neural-sensor-sim/roadmap.md)
 
 ---
 
-## Sub-Projects
+## Engineering
 
-| Project | Sensors | Technique | Key Output |
-|---------|---------|-----------|------------|
-| [fmcw-radar-sensor](https://github.com/sjang1594/fmcw-radar-sensor) | Radar (simulated) | FMCW physics, Warp BVH, GPU FFT, CA-CFAR, MUSIC DOA, Kalman tracking | Range-Doppler map, CFAR detections, ROS2 PointCloud2 |
-| [CameraLiDARLib](https://github.com/sjang1594/CameraLiDARLib) | Camera + LiDAR | OpenCV intrinsic, RANSAC plane fit, solvePnP + Nelder-Mead | 6-DoF extrinsic T (0.15° / 0.64 cm error) |
-| RadarCameraFusion | Radar + Camera | nuScenes devkit, YOLOv8m, EKF [x,y,vx,vy] | Per-object depth + Doppler-fused tracks |
-| [PointPainting](https://github.com/sjang1594/PointPainting) | LiDAR + Camera | YOLOv8-seg, BEV voxelization, DBSCAN | Semantically-painted point clouds, 3D boxes |
-| BevFormerRadar | Camera × 6 + Radar × 5 | ResNet50-FPN, Spatial Cross-Attn, CenterHead | BEV heatmap, 3D bounding boxes (vehicle/pedestrian/cyclist) |
-| [NeuralRadarSim](https://github.com/sjang1594/NeuralRadarSim) | Camera × 6 + LiDAR | 3D Gaussian Splatting, dynamic masking, pose perturbation | Novel-view images + synthetic radar detections |
-| Docs/BasicSensorTutorial | — | Theory notebooks (Udacity ND313) | Math foundations mapped to each project above |
+> *For AV/robotics industry roles: working systems, classical algorithms, benchmarks.*
+
+### FMCW Radar + EO/IR Isaac Sim Extension [`fmcw-radar-sensor/`](fmcw-radar-sensor/)
+
+GPU-accelerated radar and dual-band EO/IR sensor extensions for NVIDIA Isaac Sim,
+alongside a 29-phase multi-target tracker progression evaluated on nuScenes v1.0-mini.
+
+**Tracker benchmark (nuScenes scene-0061, 5 radars):**
+
+| Phase | Algorithm | MOTA | FP | IDSW | Contribution |
+|---|---|---|---|---|---|
+| 18 | CV-EKF | -0.183 | 161 | — | Baseline |
+| 19 | IMM | -0.170 | ~140 | — | Multi-model blending |
+| 22 | GM-PHD | -0.363 | 792 | 22 | RFS, no explicit association |
+| 23 | LMB | -0.033 | 122 | 5 | Persistent labels |
+| 24 | LMB+Camera | -0.023 | 104 | 5 | 360° radar-camera gate |
+| 27 | ETT (Random Matrix) | -0.865 | 1636 | 10 | Extent estimation, −52% FP |
+| 29 | **PMBM** | **-0.177** | **383** | **3** | Theoretically complete RFS |
+
+- PMBM: 85% FP reduction vs LMB (2569 → 383) via data-driven Bayesian birth
+- ETT: 80% IDSW reduction (49 → 10) by absorbing multi-reflection clusters
+- GPU LWIR + VIS dual-band Isaac Sim extension; EO/IR fusion: 97% RMSE reduction
+
+→ Full algorithm writeup: [`fmcw-radar-sensor/PORTFOLIO.md`](fmcw-radar-sensor/PORTFOLIO.md)
 
 ---
 
-## How the Projects Relate
+### PointPainting — Camera-LiDAR Deep Fusion [`PointPainting/`](PointPainting/)
 
-### Shared Data
-
-All projects consume **nuScenes v1.0-mini**, stored once inside `fmcw-radar-sensor/data/v1.0-mini/`
-and referenced by other projects via relative path:
+Reimplementation of *PointPainting* (Vora et al., CVPR 2020).
+LiDAR points are painted with YOLOv8-seg class scores before 3D detection.
 
 ```
-fmcw-radar-sensor/data/v1.0-mini/   ← canonical location
-BevFormerRadar/config.yaml          dataroot: "../fmcw-radar-sensor/data/v1.0-mini"
-NeuralRadarSim/config.yaml          dataroot: "../fmcw-radar-sensor/data/v1.0-mini"
-PointPainting/configs/config.yaml   nuscenes_root: "../RadarCameraFusion/data/nuscenes"
+Camera → YOLOv8-seg (H×W×6)
+                      ↓ project LiDAR → camera, sample score
+LiDAR → (N,9) painted cloud → BEV voxelizer → DBSCAN → 3D boxes
 ```
 
-> nuScenes v1.0-mini is not committed to git. Download separately from
-> https://www.nuscenes.org/nuscenes#download and extract into
-> `fmcw-radar-sensor/data/`.
+→ [`PointPainting/README.md`](PointPainting/README.md)
 
-### Sensor Transform Chain
+---
 
-All projects use the same nuScenes sensor-frame convention:
+### Radar-Camera EKF Tracking [`RadarCameraFusion/`](RadarCameraFusion/)
 
-```
-Radar sensor frame  → (R_radar, t_radar) →  Ego vehicle frame
-                                                    ↓ (R_cam, t_cam)
-                                             Camera sensor frame
-                                                    ↓ K (intrinsic)
-                                             Image pixel (u, v)
-```
-
-`CameraLiDARLib` calibrates this transform from scratch using synthetic checkerboard data.
-`RadarCameraFusion`, `PointPainting`, and `BevFormerRadar` load it directly from
-nuScenes `calibrated_sensor.json`.
-
-### Learning Progression
-
-The projects are sequenced from signal fundamentals to end-to-end deep learning:
-
-1. **fmcw-radar-sensor** — understand radar physics at ADC level (beat frequency, Doppler,
-   CFAR, DOA). Phases 1–12 build the full signal chain incrementally.
-2. **CameraLiDARLib** — understand how sensors are spatially aligned. Foundation for all
-   projection code in the other projects.
-3. **RadarCameraFusion** — classical multi-sensor fusion: explicit association + Kalman filter.
-4. **PointPainting** — sequential deep fusion: camera semantics enriching 3D geometry.
-5. **BevFormerRadar** — attention-based fusion: transformer queries over BEV space.
-6. **NeuralRadarSim** — neural scene representations: synthesize novel sensor views for
-   data augmentation.
-7. **Docs/BasicSensorTutorial** — theory companion to all of the above.
-
-### Cross-Project Dependencies
+4-state EKF with sequential sensor updates: radar (sparse depth + Doppler) and camera (YOLOv8 detections).
 
 ```
-fmcw-radar-sensor
-  ├── Phase 8  calibrate_cam_radar.py   ← same algorithm as CameraLiDARLib/03
-  ├── Phase 9  nuscenes_radar_projection ← same transform chain as RadarCameraFusion/01
-  ├── Phase 10 fusion_ekf.py            ← same EKF design as RadarCameraFusion/04
-  └── Phase 11 lidar_camera_projection  ← same RANSAC + projection as PointPainting/02
-
-BevFormerRadar
-  └── config.yaml bev grid              ← same 200×200 0.5m/cell as PointPainting/03
-
-NeuralRadarSim
-  └── use_lidar_init: true              ← reuses LIDAR_TOP from fmcw-radar-sensor/data
+Radar ──→ coordinate projection ──┐
+                                   ├─→ EKF [x, y, vx, vy] → tracks
+Camera ──→ YOLOv8 2D detection ───┘
 ```
+
+→ [`RadarCameraFusion/README.md`](RadarCameraFusion/README.md)
+
+---
+
+### Camera-LiDAR Extrinsic Calibration [`CameraLidarCalib/`](CameraLidarCalib/)
+
+Target-based 6-DoF rigid transform estimation: `findChessboardCorners` → RANSAC plane fit → `solvePnP` → Nelder-Mead refinement.
+
+| Metric | Result |
+|---|---|
+| Intrinsic reprojection error | **0.035 px** |
+| Extrinsic reprojection RMSE | **0.707 px** |
+| Rotation error vs GT | **0.15°** |
+| Translation error vs GT | **0.64 cm** |
+
+→ [`CameraLidarCalib/README.md`](CameraLidarCalib/README.md)
+
+---
+
+## Theory Foundations [`tutorials/`](tutorials/)
+
+7 notebooks covering the math behind the projects above (LiDAR, Camera, Radar basics; Calibration; Kalman/EKF/UKF; Sensor Fusion; Advanced MOT).
+Based on Udacity ND313 — study references, not original research.
+
+---
+
+## Skills Map
+
+| Area | Projects |
+|---|---|
+| Neural rendering (3DGS, gsplat 1.x) | NeuralSensorSim |
+| Synthetic data generation (radar simulation) | NeuralSensorSim |
+| BEV perception (BEVFormer, SCA, heatmap head) | BEVFormerRadar |
+| GPU acceleration (NVIDIA Warp, Isaac Sim) | fmcw-radar-sensor |
+| Radar signal processing (FMCW, CFAR, AoA) | fmcw-radar-sensor |
+| EO/IR sensor physics (Planck, NETD, attenuation) | fmcw-radar-sensor |
+| RFS tracking (GM-PHD, LMB, PMBM) | fmcw-radar-sensor |
+| Sensor calibration (PnP, RANSAC, Nelder-Mead) | CameraLidarCalib |
+| Multi-sensor EKF (radar + camera, Doppler Jacobian) | RadarCameraFusion |
+| Camera-LiDAR deep fusion (PointPainting) | PointPainting |
 
 ---
 
 ## Setup
 
-### 1. Clone with submodules
-
 ```bash
-git clone --recurse-submodules https://github.com/sjang1594/Sensor-Fusion.git
-cd Sensor-Fusion
+# Core
+pip install numpy scipy matplotlib opencv-python open3d nuscenes-devkit ultralytics
+
+# NeuralSensorSim / BEVFormerRadar
+pip install "gsplat>=1.0.0" torch torchvision
+
+# GPU phases (fmcw-radar-sensor)
+pip install warp-lang
+# Isaac Sim phases: NVIDIA Isaac Sim 2023.1+
 ```
 
-Or, if already cloned:
-
-```bash
-git submodule update --init --recursive
-```
-
-### 2. Download nuScenes mini
-
-Register at https://www.nuscenes.org/sign-up, download `v1.0-mini`, and extract to:
-
-```
-fmcw-radar-sensor/data/
-└── v1.0-mini/
-    ├── maps/
-    ├── samples/
-    ├── sweeps/
-    └── v1.0-mini/
-        ├── scene.json
-        └── ...
-```
-
-### 3. Per-project setup
-
-Each sub-project has its own `requirements.txt` and `README.md`:
-
-```bash
-# Example: RadarCameraFusion
-cd RadarCameraFusion
-python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt
-python src/05_run_pipeline.py
-```
-
-`fmcw-radar-sensor` requires **NVIDIA Isaac Sim 5.1.0** (see its README for setup).
-All other projects run on standard Python 3.9+.
-
----
-
-## Repository Structure
-
-```
-Sensor-Fusion/
-├── fmcw-radar-sensor/        [submodule] Physics FMCW radar simulator
-├── CameraLiDARLib/           [submodule] Camera-LiDAR extrinsic calibration
-├── PointPainting/            [submodule] LiDAR-camera sequential deep fusion
-├── NeuralRadarSim/           [submodule] 3D Gaussian Splatting neural scene
-├── RadarCameraFusion/        Classical radar-camera EKF fusion pipeline
-├── BevFormerRadar/           BEV transformer with radar fusion
-├── Docs/
-│   └── BasicSensorTutorial/  Theory notebooks (LiDAR/Camera/Radar/KF/Fusion)
-└── README.md                 This file
-```
-
----
-
-## Hardware Used
-
-| Component | Spec |
-|-----------|------|
-| GPU | NVIDIA RTX 4090 (24 GB, sm_89) |
-| CUDA | 12.8 |
-| OS | Windows 11 |
-| Isaac Sim | 5.1.0 (for fmcw-radar-sensor) |
+Windows CUDA build notes: [Docs/reference/windows-build.md](Docs/reference/windows-build.md)
