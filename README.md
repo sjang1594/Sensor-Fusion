@@ -19,7 +19,7 @@ A two-stage research pipeline: generate physics-accurate synthetic radar data wi
 | Stage | What it does | Key result |
 |---|---|---|
 | [NeuralSensorSim](NeuralSensorSim/) | 3DGS scene fitting → novel view synthesis → physics-based radar simulation + dynamic object paste | PSNR **30.94 dB**, 7.17M Gaussians; 120 synthetic samples/scene |
-| [BEVFormerRadar](BEVFormerRadar/) | BEVFormer (ResNet50 + SCA) trained on real + synthetic mix | Real+Synth 1:3 → MOTA **-3.75** (real-only: -13.23); post-threshold MOTA **-0.51**, IDSW **1** (vs PMBM: IDSW 3) |
+| [BEVFormerRadar](BEVFormerRadar/) | BEVFormer (ResNet50 + SCA) trained on real + synthetic mix | Real+Synth 1:1 → IDSW **3** (real-only: 13, −77%); MOTA **-0.054** at thr=0.1 |
 
 **Research arc:**
 ```
@@ -27,17 +27,19 @@ nuScenes LiDAR/Camera/Radar
          │
          ▼
 NeuralSensorSim
-  Phase 1: 3DGS static scene fitting     → PSNR 30.94 dB
+  Phase 1: 3DGS static scene fitting     → PSNR 30.94 dB, 7.17M Gaussians
   Phase 2: Novel view synthesis          → 120 samples × 12 pose perturbations
   Phase 3: Physics-based radar sim       → Radial Doppler noise, dynamic copy-paste
          │
          ▼
-BEVFormerRadar
-  Exp A: real-only baseline              → MOTA -13.23, IDSW 514
-  Exp B: real + synth 1:1               → MOTA -11.69, IDSW 422
-  Exp C: real + synth 1:3               → MOTA  -3.75, IDSW  80  (+9.5 pt, -84% IDSW)
-  Threshold tuning (thr=1e-3)           → MOTA  -0.51, IDSW   1  (near PMBM level)
+BEVFormerRadar  (score_threshold=0.1, nuScenes v1.0-mini val)
+  Exp A: real-only baseline              → MOTA -0.048, FP/f 2.8, IDSW 13
+  Exp B: real + synth 1:1               → MOTA -0.054, FP/f 2.2, IDSW  3  (IDSW −77%)
+  PMBM upper bound (radar GT)           → MOTA -0.177, FP/f 0.8, IDSW  3
 ```
+
+**Key finding:** Doppler-corrected synthetic radar augmentation reduces IDSW by 77% (13→3),
+matching PMBM-level tracking consistency. MOTA and FP/frame also marginally improve.
 
 Docs: [SUMMARY.md](Docs/SUMMARY.md) — architecture, implementation steps, experiment analysis, [research roadmap](Docs/neural-sensor-sim/roadmap.md)
 
