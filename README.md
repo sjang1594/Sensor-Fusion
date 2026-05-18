@@ -19,7 +19,7 @@ A two-stage research pipeline: generate physics-accurate synthetic radar data wi
 | Stage | What it does | Key result |
 |---|---|---|
 | [NeuralSensorSim](NeuralSensorSim/) | 3DGS scene fitting → novel view synthesis → physics-based radar simulation + dynamic object paste | PSNR **30.94 dB**, 7.17M Gaussians; 120 synthetic samples/scene |
-| [BEVFormerRadar](BEVFormerRadar/) | BEVFormer (ResNet50 + SCA) trained on real + synthetic mix | Real+Synth 1:1 → IDSW **3** (real-only: 13, −77%); MOTA **-0.054** at thr=0.1 |
+| [BEVFormerRadar](BEVFormerRadar/) | BEVFormer (ResNet50 + SCA) — 4-experiment ablation (Exp A→D) | Radar aug → MOTA **+32%**, FP **−6%**, IDSW **−33%** vs real-only |
 
 **Research arc:**
 ```
@@ -32,14 +32,17 @@ NeuralSensorSim
   Phase 3: Physics-based radar sim       → Radial Doppler noise, dynamic copy-paste
          │
          ▼
-BEVFormerRadar  (score_threshold=0.1, nuScenes v1.0-mini val)
-  Exp A: real-only baseline              → MOTA -0.048, FP/f 2.8, IDSW 13
-  Exp B: real + synth 1:1               → MOTA -0.054, FP/f 2.2, IDSW  3  (IDSW −77%)
-  PMBM upper bound (radar GT)           → MOTA -0.177, FP/f 0.8, IDSW  3
+BEVFormerRadar  (nuScenes v1.0-mini, val: scene 6–7)
+  Exp A: real-only baseline              → MOTA -9.43, FP/f 30.5, IDSW 459
+  Exp B: real + 3DGS synth 1:1          → MOTA -10.23, FP/f 40.2, IDSW 273  (camera domain gap → FP↑)
+  Exp C: real + 3DGS synth 1:3          → MOTA -14.41, FP/f 33.3, IDSW 712  (악화)
+  Exp D: real cam + radar aug 1:3       → MOTA  -6.43, FP/f 28.7, IDSW 308  (전체 최선 ✅)
+  PMBM upper bound (radar GT)           → MOTA  -0.18, FP/f  0.8, IDSW   3
 ```
 
-**Key finding:** Doppler-corrected synthetic radar augmentation reduces IDSW by 77% (13→3),
-matching PMBM-level tracking consistency. MOTA and FP/frame also marginally improve.
+**Key finding:** 3DGS camera images hurt performance (frozen backbone domain gap, FP +32%).
+Removing synthetic camera and keeping only radar augmentation achieves MOTA +32%, FP −6%,
+IDSW −33% simultaneously — experimentally isolating camera sim-to-real gap from radar augmentation benefit.
 
 Docs: [SUMMARY.md](Docs/SUMMARY.md) — architecture, implementation steps, experiment analysis, [research roadmap](Docs/neural-sensor-sim/roadmap.md)
 
